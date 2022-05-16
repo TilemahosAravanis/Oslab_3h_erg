@@ -18,13 +18,13 @@
 
 #define MANDEL_MAX_ITERATION 100000
 
-/* 
+/*
  * POSIX thread functions do not return error numbers in errno,
  * but in the actual return value of the function call instead.
  * This macro helps with error reporting in this case.
  */
 #define perror_pthread(ret, msg) \
-	do { errno = ret; perror(msg); } while (0)
+        do { errno = ret; perror(msg); } while (0)
 
 /***************************
  * Compile-time parameters *
@@ -43,6 +43,10 @@ int x_chars = 90;
 double xmin = -1.8, xmax = 1.0;
 double ymin = -1.0, ymax = 1.0;
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> Tim
 /*
  * Every character in the final output is
  * xstep x ystep units wide on the complex plane.
@@ -60,7 +64,6 @@ struct thread_info_struct {
 
     int thrid; /* Application-defined thread id */
     int nThreads;
-    
 };
 
 /*
@@ -88,7 +91,7 @@ void compute_mandel_line(int line, int color_val[])
                 val = mandel_iterations_at_point(x, y, MANDEL_MAX_ITERATION);
                 if (val > 255)
                         val = 255;
-
+                
                 /* And store it in the color_val[] array */
                 val = xterm_color(val);
                 color_val[n] = val;
@@ -171,12 +174,78 @@ void *safe_malloc(size_t size)
         return p;
 }
 
+
 void usage(char *argv0)
 {
         fprintf(stderr, "Usage: %s thread_count\n\n"
                 "Exactly one argument required:\n"
                 "    thread_count: The number of threads to create.\n", argv0);
         exit(1);
+}
+
+
+
+int main(int argc, char *argv[])
+{
+        int i, ret, nThreads;
+        struct thread_info_struct *thr;
+
+        if (argc != 2) {
+            usage(argv[0]);
+        }
+        if (safe_atoi(argv[1], &nThreads) < 0 || nThreads <= 0) {
+                fprintf(stderr, "`%s' is not valid for `thread_count'\n", argv[1]);
+                exit(1);
+        }
+
+        semaphores = safe_malloc(nThreads *sizeof(*semaphores));
+
+        sem_init(&semaphores[0], 0, 1); // output initiation thread (first)
+        for(i=1; i<nThreads; i++){
+            sem_init(&semaphores[i], 0, 0); // output threads block initially
+        }
+
+        thr = safe_malloc(nThreads * sizeof(*thr));
+
+        xstep = (xmax - xmin) / x_chars;
+        ystep = (ymax - ymin) / y_chars;
+
+        
+        /*
+         * draw the Mandelbrot Set, one line at a time.
+         * Output is sent to file descriptor '1', i.e., standard output.
+         */
+
+        for(i=0; i<nThreads; i++){
+                /* Initialize per-thread structure */
+                thr[i].nThreads = nThreads;
+                thr[i].thrid = i;
+                thr[i].semaphores = semaphores;
+                thr[i].fd = 1;
+
+                /* Spawn new thread */
+                ret = pthread_create(&thr[i].tid, NULL, compute_and_output_mandel_line, &thr[i]);
+                if (ret) {
+                    perror_pthread(ret, "pthread_create");
+                    exit(1);
+                }
+        }
+
+        /*
+         * Wait for all threads to terminate
+         */
+
+        for (i = 0; i < nThreads; i++) {
+                sem_destroy(&semaphores[i]);
+                ret = pthread_join(thr[i].tid, NULL);
+                if (ret) {
+                        perror_pthread(ret, "pthread_join");
+                        exit(1);
+                }
+        }
+
+        reset_xterm_color(1);
+        return 0;
 }
 
 
