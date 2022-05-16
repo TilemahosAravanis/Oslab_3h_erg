@@ -26,8 +26,13 @@
 #define N 10000000
 
 /* Dots indicate lines where you are free to insert code at will */
-/* ...*/
-pthread_mutex_t lock;
+
+/* Mutual Data in SYNC_ATOMIC */
+int atomic_lock = 0;
+
+/* Mutual Data in SYNC_MUTEX */
+pthread_mutex_t mutex_lock;
+
 
 #if defined(SYNC_ATOMIC) ^ defined(SYNC_MUTEX) == 0
 # error You must #define exactly one of SYNC_ATOMIC or SYNC_MUTEX.
@@ -47,22 +52,24 @@ void *increase_fn(void *arg)
 	fprintf(stderr, "About to increase variable %d times\n", N);
 	for (i = 0; i < N; i++) {
 		if (USE_ATOMIC_OPS) {
-			/* ... */
-			/* You can modify the following line */
-			//++(*ip);
-			/* ... */
-			__sync_add_and_fetch (ip, 1);
+			while(!sync_bool_compare_and_swap(&atomic_lock,0,1))
+			;
+			/* Critical section */
+			++(*ip);
+			/* Critical section */
+			atomic_lock = 0;
 		} else {
-			/* ... */
-			if (pthread_mutex_lock(&lock)){
-        		perror("pthread_mutex_lock failed");
+			int ret = pthread_mutex_lock(&mutex_lock);
+			if (ret){
+        		perror_pthread(ret, "pthread_mutex_lock");
         		exit(1);
 			}
-			/* You cannot modify the following line */
+			/* Critical section */
 			++(*ip);
-			/* ... */
-			if (pthread_mutex_unlock(&lock)){
-        		perror("pthread_mutex_unlock failed");
+			/* Critical section */
+			ret = pthread_mutex_unlock(&mutex_lock);
+			if (ret){
+        		perror_pthread(ret, "pthread_mutex_unlock");
         		exit(1);
 			}
 		}
@@ -80,22 +87,24 @@ void *decrease_fn(void *arg)
 	fprintf(stderr, "About to decrease variable %d times\n", N);
 	for (i = 0; i < N; i++) {
 		if (USE_ATOMIC_OPS) {
-			/* ... */
-			/* You can modify the following line */
-			//--(*ip);
-			/* ... */
-			__sync_sub_and_fetch (ip, 1);
+		while(!sync_bool_compare_and_swap(&atomic_lock,0,1))
+			;
+			/* Critical section */
+			--(*ip);
+			/* Critical section */
+			atomic_lock = 0;
 		} else {
-			/* ... */
-			if (pthread_mutex_lock(&lock)){
-        		perror("pthread_mutex_lock failed");
+				int ret = pthread_mutex_lock(&mutex_lock);
+			if (ret){
+        		perror_pthread(ret, "pthread_mutex_lock");
         		exit(1);
 			}
-			/* You cannot modify the following line */
+			/* Critical section */
 			--(*ip);
-			/* ... */
-			if (pthread_mutex_unlock(&lock)){
-        		perror("pthread_mutex_unlock failed");
+			/* Critical section */
+			ret = pthread_mutex_unlock(&mutex_lock);
+			if (ret){
+        		perror_pthread(ret, "pthread_mutex_unlock");
         		exit(1);
 			}
 		}
