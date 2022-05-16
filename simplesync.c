@@ -52,7 +52,7 @@ void *increase_fn(void *arg)
 	fprintf(stderr, "About to increase variable %d times\n", N);
 	for (i = 0; i < N; i++) {
 		if (USE_ATOMIC_OPS) {
-			while(!sync_bool_compare_and_swap(&atomic_lock,0,1))
+			while(! __sync_bool_compare_and_swap(&atomic_lock,0,1))
 			;
 			/* Critical section */
 			++(*ip);
@@ -87,14 +87,14 @@ void *decrease_fn(void *arg)
 	fprintf(stderr, "About to decrease variable %d times\n", N);
 	for (i = 0; i < N; i++) {
 		if (USE_ATOMIC_OPS) {
-		while(!sync_bool_compare_and_swap(&atomic_lock,0,1))
+			while(! __sync_bool_compare_and_swap(&atomic_lock,0,1))
 			;
 			/* Critical section */
 			--(*ip);
 			/* Critical section */
 			atomic_lock = 0;
 		} else {
-				int ret = pthread_mutex_lock(&mutex_lock);
+			int ret = pthread_mutex_lock(&mutex_lock);
 			if (ret){
         		perror_pthread(ret, "pthread_mutex_lock");
         		exit(1);
