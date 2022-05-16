@@ -43,10 +43,6 @@ int x_chars = 90;
 double xmin = -1.8, xmax = 1.0;
 double ymin = -1.0, ymax = 1.0;
 
-<<<<<<< HEAD
-=======
-
->>>>>>> Tim
 /*
  * Every character in the final output is
  * xstep x ystep units wide on the complex plane.
@@ -184,7 +180,6 @@ void usage(char *argv0)
 }
 
 
-
 int main(int argc, char *argv[])
 {
         int i, ret, nThreads;
@@ -237,71 +232,6 @@ int main(int argc, char *argv[])
 
         for (i = 0; i < nThreads; i++) {
                 sem_destroy(&semaphores[i]);
-                ret = pthread_join(thr[i].tid, NULL);
-                if (ret) {
-                        perror_pthread(ret, "pthread_join");
-                        exit(1);
-                }
-        }
-
-        reset_xterm_color(1);
-        return 0;
-}
-
-
-
-int main(int argc, char *argv[])
-{
-        int i, ret, nThreads;
-	    struct thread_info_struct *thr;
-
-        if (argc != 2) {
-            usage(argv[0]);
-        }
-        if (safe_atoi(argv[1], &nThreads) < 0 || nThreads <= 0) {
-                fprintf(stderr, "`%s' is not valid for `thread_count'\n", argv[1]);
-                exit(1);
-        }
-
-        semaphores = safe_malloc(nThreads *sizeof(*semaphores));
-
-        sem_init(&semaphores[0], 0, 1); // output initiation thread (first)
-	    for(i=1; i<nThreads; i++){
-		    sem_init(&semaphores[i], 0, 0); // output threads wait at start
-	    }
-
-        thr = safe_malloc(nThreads * sizeof(*thr));
-
-        xstep = (xmax - xmin) / x_chars;
-        ystep = (ymax - ymin) / y_chars;
-
-        /*
-         * draw the Mandelbrot Set, one line at a time.
-         * Output is sent to file descriptor '1', i.e., standard output.
-         */
-
-        for(i=0; i<nThreads; i++){
-		    /* Initialize per-thread structure */
-		    thr[i].nThreads = nThreads;
-		    thr[i].thrid = i;
-		    thr[i].semaphores = semaphores;
-            thr[i].fd = 1;
-
-            /* Spawn new thread */
-            ret = pthread_create(&thr[i].tid, NULL, compute_and_output_mandel_line, &thr[i]);
-		    if (ret) {
-			    perror_pthread(ret, "pthread_create");
-			    exit(1);
-            }
-
-        }
-
-        /*
-         * Wait for all threads to terminate
-         */
-
-        for (i = 0; i < nThreads; i++) {
-                sem_destroy(&semaphores[0]);
                 ret = pthread_join(thr[i].tid, NULL);
                 if (ret) {
                         perror_pthread(ret, "pthread_join");
