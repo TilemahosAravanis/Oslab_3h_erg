@@ -50,8 +50,6 @@ double ymin = -1.0, ymax = 1.0;
 double xstep;
 double ystep;
 
-sem_t* semaphores;
-
 struct thread_info_struct {
     pthread_t tid;
 
@@ -134,11 +132,11 @@ void *compute_and_output_mandel_line(void* arg)
         for (i = thr->thrid; i < y_chars; i += thr->nThreads){
             int color_val[x_chars];
             compute_mandel_line(i, color_val);
-            sem_wait(&semaphores[i % (thr->nThreads)]);
+            sem_wait(&thr->semaphores[i % (thr->nThreads)]);
             /* Critical section */
             output_mandel_line(thr->fd, color_val);
              /* Critical section */
-            sem_post(&semaphores[(i+1) % (thr->nThreads)]);
+            sem_post(&thr->semaphores[(i+1) % (thr->nThreads)]);
         }
 
         return NULL;
@@ -193,7 +191,7 @@ int main(int argc, char *argv[])
                 exit(1);
         }
 
-        semaphores = safe_malloc(nThreads *sizeof(*semaphores));
+        sem_t *semaphores = safe_malloc(nThreads *sizeof(*semaphores));
 
         sem_init(&semaphores[0], 0, 1); // output initiation thread (first)
         for(i=1; i<nThreads; i++){

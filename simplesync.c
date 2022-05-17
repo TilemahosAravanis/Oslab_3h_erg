@@ -126,6 +126,16 @@ int main(int argc, char *argv[])
 	val = 0;
 
 	/*
+	 * Initialize mutex
+	 */
+
+	ret = pthread_mutex_init(&mutex_lock, NULL);
+    if (ret) {
+            perror_pthread(ret, "pthread_mutex_init");
+			exit(1);
+	}
+
+	/*
 	 * Create threads
 	 */
 	ret = pthread_create(&t1, NULL, increase_fn, &val);
@@ -148,6 +158,15 @@ int main(int argc, char *argv[])
 	ret = pthread_join(t2, NULL);
 	if (ret)
 		perror_pthread(ret, "pthread_join");
+
+	/*
+	 * Destroy mutex
+	 */
+	ret = pthread_mutex_destroy(&mutex_lock);
+    if (ret) {
+            perror_pthread(ret, "pthread_mutex_destroy");
+			exit(1);
+	}
 
 	/*
 	 * Is everything OK?
