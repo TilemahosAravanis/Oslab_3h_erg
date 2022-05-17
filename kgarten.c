@@ -40,7 +40,8 @@ struct kgarten_struct {
          * you may need.
          */
 
-        /* ... */
+        pthread_cond_t cond_child_enter;
+        pthread_cond_t cond_teacher_exit;
 
         /*
          * You may NOT modify anything in the structure below this
@@ -161,6 +162,8 @@ void child_enter(struct thread_info_struct *thr)
         fprintf(stderr, "THREAD %d: CHILD ENTER\n", thr->thrid);
 
         pthread_mutex_lock(&thr->kg->mutex);
+        while(((thr->kg->vc)+1) > (thr->kg->vt)*(thr->kg->ratio))
+            pthread_cond_wait(&thr->kg->cond_child_enter, &thr->kg->mutex);
         ++(thr->kg->vc);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
@@ -178,6 +181,8 @@ void child_exit(struct thread_info_struct *thr)
 
         pthread_mutex_lock(&thr->kg->mutex);
         --(thr->kg->vc);
+        if((thr->kg->vc) <= ((thr->kg->vt)-1)*(thr->kg->ratio))
+            pthread_cond_broadcast(&thr->kg->cond_teacher_exit);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
 
@@ -193,8 +198,11 @@ void teacher_enter(struct thread_info_struct *thr)
 
         pthread_mutex_lock(&thr->kg->mutex);
         ++(thr->kg->vt);
+        if(((thr->kg->vc)+1) <= (thr->kg->vt)*(thr->kg->ratio))
+            pthread_cond_broadcast(&thr->kg->cond_child_enter);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
+
 void teacher_exit(struct thread_info_struct *thr)
 {
         if (thr->is_child) {
@@ -206,6 +214,8 @@ void teacher_exit(struct thread_info_struct *thr)
         fprintf(stderr, "THREAD %d: TEACHER EXIT\n", thr->thrid);
 
         pthread_mutex_lock(&thr->kg->mutex);
+        while((thr->kg->vt-1)*thr->kg->ratio < thr->kg->vc)
+            pthread_cond_wait(&thr->kg->cond_teacher_exit,&thr->kg->mutex);
         --(thr->kg->vt);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
@@ -255,15 +265,16 @@ void *thread_start_fn(void *arg)
 
                 fprintf(stderr, "Thread %d [%s]: Entered.\n", thr->thrid, nstr);
 
-                /*
-                 * We're inside the critical section,
-                 * just sleep for a while.
-                 */
-                /* usleep(rand_r(&thr->rseed) % 1000000 / (thr->is_child ? 10000 : 1)); */
                 pthread_mutex_lock(&thr->kg->mutex);
                 verify(thr);
                 pthread_mutex_unlock(&thr->kg->mutex);
 
+                /*
+                 * We're inside the critical section,
+                 * just sleep for a while.
+                 */
+
+                /* usleep(rand_r(&thr->rseed) % 1000000 / (thr->is_child ? 10000 : 1)); */
                 usleep(rand_r(&thr->rseed) % 1000000);
 
                 fprintf(stderr, "Thread %d [%s]: Exiting.\n", thr->thrid, nstr);
@@ -330,7 +341,18 @@ int main(int argc, char *argv[])
                 exit(1);
         }
         
-        /* ... */
+        /* Initializing my kgarten additions */
+        ret = pthread_cond_init(&kg->cond_child_enter, NULL);
+        if (ret) {
+                perror_pthread(ret, "pthread_cond_init");
+                exit(1);
+        }
+        
+        ret = pthread_cond_init(&kg->cond_teacher_exit, NULL);
+        if (ret) {
+                perror_pthread(ret, "pthread_cond_init");
+                exit(1);
+        }
 
         /*
          * Create threads
