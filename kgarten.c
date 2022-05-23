@@ -40,8 +40,7 @@ struct kgarten_struct {
          * you may need.
          */
 
-        pthread_cond_t cond_child_enter;
-        pthread_cond_t cond_teacher_exit;
+        pthread_cond_t cond;
 
         /*
          * You may NOT modify anything in the structure below this
@@ -163,7 +162,7 @@ void child_enter(struct thread_info_struct *thr)
 
         pthread_mutex_lock(&thr->kg->mutex);
         while(((thr->kg->vc)+1) > (thr->kg->vt)*(thr->kg->ratio))
-            pthread_cond_wait(&thr->kg->cond_child_enter, &thr->kg->mutex);
+            pthread_cond_wait(&thr->kg->cond, &thr->kg->mutex);
         ++(thr->kg->vc);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
@@ -181,8 +180,8 @@ void child_exit(struct thread_info_struct *thr)
 
         pthread_mutex_lock(&thr->kg->mutex);
         --(thr->kg->vc);
-        if((thr->kg->vc) <= ((thr->kg->vt)-1)*(thr->kg->ratio))
-            pthread_cond_broadcast(&thr->kg->cond_teacher_exit);
+        //if((thr->kg->vc) <= ((thr->kg->vt)-1)*(thr->kg->ratio))
+        pthread_cond_broadcast(&thr->kg->cond);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
 
@@ -198,8 +197,8 @@ void teacher_enter(struct thread_info_struct *thr)
 
         pthread_mutex_lock(&thr->kg->mutex);
         ++(thr->kg->vt);
-        if(((thr->kg->vc)+1) <= (thr->kg->vt)*(thr->kg->ratio))
-            pthread_cond_broadcast(&thr->kg->cond_child_enter);
+        //if(((thr->kg->vc)+1) <= (thr->kg->vt)*(thr->kg->ratio))
+        pthread_cond_broadcast(&thr->kg->cond);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
 
@@ -215,7 +214,7 @@ void teacher_exit(struct thread_info_struct *thr)
 
         pthread_mutex_lock(&thr->kg->mutex);
         while((thr->kg->vt-1)*thr->kg->ratio < thr->kg->vc)
-            pthread_cond_wait(&thr->kg->cond_teacher_exit,&thr->kg->mutex);
+            pthread_cond_wait(&thr->kg->cond, &thr->kg->mutex);
         --(thr->kg->vt);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
@@ -342,18 +341,13 @@ int main(int argc, char *argv[])
         }
         
         /* Initializing my kgarten additions */
-        ret = pthread_cond_init(&kg->cond_child_enter, NULL);
+        ret = pthread_cond_init(&kg->cond, NULL);
         if (ret) {
                 perror_pthread(ret, "pthread_cond_init");
                 exit(1);
         }
         
-        ret = pthread_cond_init(&kg->cond_teacher_exit, NULL);
-        if (ret) {
-                perror_pthread(ret, "pthread_cond_init");
-                exit(1);
-        }
-
+        
         /*
          * Create threads
          */
