@@ -15,6 +15,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include "mandel-lib.h"
+#include <signal.h>
 
 #define MANDEL_MAX_ITERATION 100000
 
@@ -25,6 +26,14 @@
  */
 #define perror_pthread(ret, msg) \
         do { errno = ret; perror(msg); } while (0)
+
+/*
+Sigint(ctrl+c) handler
+*/
+void sigint_handler(int signum) {
+        reset_xterm_color(1);
+        exit(1);
+}
 
 /***************************
  * Compile-time parameters *
@@ -200,8 +209,19 @@ int main(int argc, char *argv[])
 
         thr = safe_malloc(nThreads * sizeof(*thr));
 
-        xstep = (xmax - xmin) / x_chars;
+        xstep = (xmax - xmin) / x_chars;        
         ystep = (ymax - ymin) / y_chars;
+
+        struct sigaction act;
+        sigset_t sigset;
+        act.sa_handler=sigint_handler;
+        sigemptyset(&sigset);
+        act.sa_mask=sigset;
+        act.sa_flags=SA_RESTART;
+        if(sigaction(SIGINT, &act, NULL) == -1) {
+                perror("sigaction");
+                exit(EXIT_FAILURE);
+        }
 
         
         /*
